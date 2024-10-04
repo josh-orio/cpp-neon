@@ -1,7 +1,7 @@
 #include <algorithm>
-// #include <print>
-#include <random>
+#include <format>
 #include <iostream>
+#include <random>
 
 #include "neon.hpp"
 
@@ -16,10 +16,8 @@ float rng() { return (int)(urd(re) * 100) % 100; }
 // PRINT ARRAY
 template <typename T> void arr_print(T *d, int len) {
   for (int i = 0; i < len; i++) {
-    // std::print(" {0}", d[i]);
     std::cout << " " << d[i];
   }
-  // std::println("");
   std::cout << std::endl;
 }
 ////
@@ -28,7 +26,6 @@ template <typename T> void arr_print(T *d, int len) {
 void amul(float *a, float *b, float *c, uint len) {
   for (int i = 0; i < len; i++) {
     c[i] = a[i] * b[i];
-    // std::println("{} {} {}", a[i], b[i], a[i] * b[i]);
   }
 }
 ////
@@ -36,70 +33,97 @@ void amul(float *a, float *b, float *c, uint len) {
 int main() {
   const int len = 128;
 
-  std::array<float, len> a, b, c;
+  alignas(256) std::array<float, len> a, b, c;
 
-  // load a and b with random values
-  std::generate(a.begin(), a.end(), rng);
-  std::generate(b.begin(), b.end(), rng);
+  // timing counters
+  double d_amul = 0, d_namul = 0, d_npamul = 0, d_nwamul = 0;
 
-  // PRINT A
-  // std::print("A:");
-  std::cout << "A:";
-  arr_print(a.data(), 8);
-
-  // PRINT B
-  // std::print("B:");
-  std::cout << "B:";
-  arr_print(b.data(), 8);
-
-  //   namul(a.data(), b.data(), c.data(), len);
-
-  //   for (int i = 0; i < len; i++) {
-  //     std::println("{0} * {1} = {2}", a[i], b[i], c[i]);
-  //   }
-
-  int test_iterations = 1e5;
+  long test_iterations = 1e6;
 
   auto start = std::chrono::high_resolution_clock::now(),
        end = std::chrono::high_resolution_clock::now();
 
-  float duration = 0;
+  // std::generate(a.begin(), a.end(), rng);
+  // std::generate(b.begin(), b.end(), rng);
+  //    start = std::chrono::high_resolution_clock::now();
+  // npamul(a.data(), b.data(), c.data(), len);
+  // end = std::chrono::high_resolution_clock::now();
+  // d_nwamul += std::chrono::duration<double>(end - start).count();
+  // arr_print(c.data(), 32);
+
+  // return 0;
 
   for (int i = 0; i < test_iterations; i++) {
-    start = std::chrono::high_resolution_clock::now();
-    namul(a.data(), b.data(), c.data(), len);
-    end = std::chrono::high_resolution_clock::now();
+    // load a and b with random values
+    std::generate(a.begin(), a.end(), rng);
+    std::generate(b.begin(), b.end(), rng);
 
-    duration += std::chrono::duration<double>(end - start).count();
-  }
-
-  // std::print("C: ");
-  std::cout << "C:";
-  arr_print(c.data(), 8);
-  // std::println("NEON:    {:.12f} s", duration / test_iterations);
-  std::cout << "NEON: " << duration / test_iterations << " s" << std::endl;
-
-  duration = 0;
-
-  for (int i = 0; i < test_iterations; i++) {
     start = std::chrono::high_resolution_clock::now();
     amul(a.data(), b.data(), c.data(), len);
     end = std::chrono::high_resolution_clock::now();
+    d_amul += std::chrono::duration<double>(end - start).count();
+    if (i == 0) {
+      arr_print(c.data(), 32);
+    }
+    std::fill(c.begin(), c.end(), 0);
 
-    duration += std::chrono::duration<double>(end - start).count();
+    start = std::chrono::high_resolution_clock::now();
+    namul(a.data(), b.data(), c.data(), len);
+    end = std::chrono::high_resolution_clock::now();
+    d_namul += std::chrono::duration<double>(end - start).count();
+    if (i == 0) {
+      arr_print(c.data(), 32);
+    }
+    std::fill(c.begin(), c.end(), 0);
+
+    start = std::chrono::high_resolution_clock::now();
+    npamul(a.data(), b.data(), c.data(), len);
+    end = std::chrono::high_resolution_clock::now();
+    d_npamul += std::chrono::duration<double>(end - start).count();
+    if (i == 0) {
+      arr_print(c.data(), 32);
+    }
+    std::fill(c.begin(), c.end(), 0);
+
+    start = std::chrono::high_resolution_clock::now();
+    nwamul(a.data(), b.data(), c.data(), len);
+    end = std::chrono::high_resolution_clock::now();
+    d_nwamul += std::chrono::duration<double>(end - start).count();
+    if (i == 0) {
+      arr_print(c.data(), 32);
+    }
+    std::fill(c.begin(), c.end(), 0);
   }
 
-  // duration = std::chrono::duration<double>(end - start).count();
+  // // PRINT A
+  // // std::print("A:");
+  // std::cout << "A:";
+  // arr_print(a.data(), 8);
 
-  // std::print("C: ");
-  std::cout << "C:";
-  arr_print(c.data(), 8);
-  // std::println("Classic: {:.12f} s", duration / test_iterations);
-  std::cout << "Classic: " << duration / test_iterations << " s" << std::endl;
+  // // PRINT B
+  // // std::print("B:");
+  // std::cout << "B:";
+  // arr_print(b.data(), 8);
+
+  std::cout << std::format("{:<20}| {:.12f} s | {:.4f} GFLOPS", "Classic",
+                           d_amul / test_iterations,
+                           128 * (1 / (d_amul / test_iterations)) / 1e9)
+            << std::endl;
+
+  std::cout << std::format("{:<20}| {:.12f} s | {:.4f} GFLOPS", "NEON",
+                           d_namul / test_iterations,
+                           128 * (1 / (d_namul / test_iterations)) / 1e9)
+            << std::endl;
+
+  std::cout << std::format("{:<20}| {:.12f} s | {:.4f} GFLOPS", "NEON Prefetched",
+                           d_npamul / test_iterations,
+                           128 * (1 / (d_npamul / test_iterations)) / 1e9)
+            << std::endl;
+
+  std::cout << std::format("{:<20}| {:.12f} s | {:.4f} GFLOPS", "NEON Multi-Fetch",
+                           d_nwamul / test_iterations,
+                           128 * (1 / (d_nwamul / test_iterations)) / 1e9)
+            << std::endl;
 
   return 0;
 }
-
-// multiple load instructions for one vector multiply
-
-// vector load should just be one instruction?
