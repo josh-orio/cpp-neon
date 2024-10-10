@@ -5,6 +5,10 @@
 
 #include "neon.hpp"
 
+extern "C" {
+  void famul(float *a, float *b, float *c, int* len);
+}
+
 // RANDOM NUMBER GENERATOR
 std::random_device rd;
 std::default_random_engine re = std::default_random_engine(rd());
@@ -31,14 +35,19 @@ void amul(float *a, float *b, float *c, uint len) {
 ////
 
 int main() {
-  const int len = 128;
+  const int lenc = 128;
+  int len = lenc;
 
-  alignas(256) std::array<float, len> a, b, c;
+  alignas(256) std::array<float, lenc> a, b, c;
+  // float *a = new float[len];
+  // float *b = new float[len];
+  // float *c = new float[len];
 
   // timing counters
-  double d_amul = 0, d_namul = 0, d_npamul = 0, d_nwamul = 0;
+  double d_amul = 0, d_namul = 0, d_npamul = 0, d_nwamul = 0, d_famul = 0;
 
   long test_iterations = 1e6;
+  test_iterations = 1;
 
   auto start = std::chrono::high_resolution_clock::now(),
        end = std::chrono::high_resolution_clock::now();
@@ -93,6 +102,18 @@ int main() {
       arr_print(c.data(), 32);
     }
     std::fill(c.begin(), c.end(), 0);
+
+    start = std::chrono::high_resolution_clock::now();
+    // famul(a.data(), b.data(), c.data(), const_cast<int*>(&len));
+    std::cout << "huh" << std::endl;
+    famul(a.data(), b.data(), c.data(), &len);
+    std::cout << "hah" << std::endl;
+    end = std::chrono::high_resolution_clock::now();
+    d_famul += std::chrono::duration<double>(end - start).count();
+    if (i == 0) {
+      arr_print(c.data(), 32);
+    }
+    std::fill(c.begin(), c.end(), 0);
   }
 
   // // PRINT A
@@ -121,6 +142,11 @@ int main() {
             << std::endl;
 
   std::cout << std::format("{:<20}| {:.12f} s | {:.4f} GFLOPS", "NEON Multi-Fetch",
+                           d_nwamul / test_iterations,
+                           128 * (1 / (d_nwamul / test_iterations)) / 1e9)
+            << std::endl;
+
+            std::cout << std::format("{:<20}| {:.12f} s | {:.4f} GFLOPS", "Fortran",
                            d_nwamul / test_iterations,
                            128 * (1 / (d_nwamul / test_iterations)) / 1e9)
             << std::endl;
